@@ -1,0 +1,46 @@
+name: Generate Misc Partition Image
+
+on:
+  workflow_dispatch:  # 手動でトリガー可能
+
+jobs:
+  build-misc-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'  # Python 3.12 または互換バージョン
+
+      - name: Generate misc.img
+        run: |
+          # miscイメージを作成するためのPythonスクリプトを実行
+          python - <<EOF
+          misc_size = 2048
+          misc_data = bytearray(misc_size)  # すべてゼロで初期化
+
+          # commandフィールド (オフセット0, 32 bytes): "boot-recovery\0"
+          command = b"boot-recovery\0"
+          misc_data[0:len(command)] = command
+
+          # recoveryフィールド (オフセット64, 768 bytes): "recovery\n--wipe_data\n--wipe_cache\n\0"
+          recovery_cmd = b"recovery\n--wipe_data\n--wipe_cache\n\0"
+          misc_data[64:64 + len(recovery_cmd)] = recovery_cmd
+
+          # ファイル出力
+          with open('misc.img', 'wb') as f:
+              f.write(misc_data)
+
+          print("misc.img created with wipe_data and wipe_cache commands.")
+          EOF
+
+      - name: Upload misc.img as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: misc-image
+          path: misc.img
+          retention-days: 5  # アーティファクトの保持期間
